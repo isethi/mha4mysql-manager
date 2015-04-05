@@ -2267,7 +2267,10 @@ sub main {
   if ($error_code) {
     finalize_on_error();
   }
-  return $error_code;
+  my ( $servers_config, $binlog_server ) = init_config();
+  my @servers        = @$servers_config;
+  my $server_count =  scalar @servers;
+  return ($error_code, $server_count) ;
 }
 
 1;

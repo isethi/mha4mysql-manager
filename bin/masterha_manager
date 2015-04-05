@@ -46,33 +46,40 @@ if ($help) {
   pod2usage(0);
 }
 
-my @ORIG_ARGV = @ARGV;
-my ( $exit_code, $dead_master, $ssh_reachable ) =
-  MHA::MasterMonitor::main( "--interactive=0", @ARGV );
+while(1){
+    my @ORIG_ARGV = @ARGV;
+    my ( $exit_code, $dead_master, $ssh_reachable ) =
+      MHA::MasterMonitor::main( "--interactive=0", @ARGV );
 
-if ( $exit_code && $exit_code != $MHA::ManagerConst::MASTER_DEAD_RC ) {
-  exit $exit_code;
+    if ( $exit_code && $exit_code != $MHA::ManagerConst::MASTER_DEAD_RC ) {
+      exit $exit_code;
+    }
+    if ( !$dead_master->{hostname}
+      || !$dead_master->{ip}
+      || !$dead_master->{port}
+      || !defined($ssh_reachable) )
+    {
+      exit 1;
+    }
+
+    @ARGV      = @ORIG_ARGV;
+    my ($failover_exit_code, $server_count) = MHA::MasterFailover::main(
+      "--master_state=dead",
+      "--interactive=0",
+      "--dead_master_host=$dead_master->{hostname}",
+      "--dead_master_ip=$dead_master->{ip}",
+      "--dead_master_port=$dead_master->{port}",
+      "--ssh_reachable=$ssh_reachable",
+      @ARGV
+    );
+    if ($failover_exit_code != 0){
+        exit $failover_exit_code;
+    }
+    if ($server_count > 1){
+        exit $failover_exit_code;
+    }
 }
-if ( !$dead_master->{hostname}
-  || !$dead_master->{ip}
-  || !$dead_master->{port}
-  || !defined($ssh_reachable) )
-{
-  exit 1;
-}
 
-@ARGV      = @ORIG_ARGV;
-$exit_code = MHA::MasterFailover::main(
-  "--master_state=dead",
-  "--interactive=0",
-  "--dead_master_host=$dead_master->{hostname}",
-  "--dead_master_ip=$dead_master->{ip}",
-  "--dead_master_port=$dead_master->{port}",
-  "--ssh_reachable=$ssh_reachable",
-  @ARGV
-);
-
-exit $exit_code;
 
 # ############################################################################
 # Documentation
